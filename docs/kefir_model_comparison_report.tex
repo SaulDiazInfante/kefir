@@ -1,0 +1,548 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[numbers]{natbib}
+\usepackage{hyperref}
+
+\graphicspath{{./}{../outputs/neural_sde_comparison_outputs/}}
+
+\title{Comparison of Classical, Neural ODE, and Neural SDE Fits for Water Kefir Data}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+    This report compares three dynamical descriptions of water kefir
+    fermentation data: a classical logistic ordinary differential equation, a
+    deterministic Neural ODE, and a Neural SDE. The data consist of three
+    trials measured at 15 time points, giving 45 scalar observations. The
+    deterministic Neural ODE is treated as a population model: the three trials
+    are interpreted as repeated
+    realizations of the same experiment, so one fitted curve is compared with
+    all trial observations. The reported residual criteria are in-sample
+    diagnostics; out-of-sample MSE should be computed with a time-respecting
+    train/test split.
+\end{abstract}
+
+\section{Data and preprocessing}
+
+        Let $y_i^{[j]}$ denote the response observed at time $t_i$ in trial$j$,
+    with $i=0,\ldots,T-1$ and $j=1,\ldots,J$. In this experiment $T=15$ and
+    $J=3$. The time points run from $0$ to $168$ in the original time units.
+    The observed index set is
+    $$
+    \Omega = \{(i,j): y_i^{[j]}\ \hbox{is observed}\},
+    \qquad n = |\Omega| = 45.
+    $$
+
+        The neural models were trained on normalized time and normalized
+    response:
+    $$
+        \tau_i = \frac{t_i-t_{\min}}{t_{\max}-t_{\min}},
+        \qquad
+        z_i^{[j]} = \frac{y_i^{[j]}-\bar y}{s_y},
+    $$
+    where
+    $$
+        \bar y = \frac{1}{n}\sum_{(i,j)\in\Omega} y_i^{[j]},
+        \qquad
+        s_y =
+            \left[
+                \frac{1}{n}\sum_{(i,j)\in\Omega}(y_i^{[j]}-\bar y)^2
+            \right]^{1/2}.
+    $$
+    Thus $\tau_i\in[0,1]$. All model diagnostics were computed on the original
+    response scale; for the neural models this required transforming fitted
+    normalized values back to the scale of $y_i^{[j]}$.
+
+\section{Models}
+
+    \subsection{Classical logistic ODE}
+            The classical baseline is the Verhulst logistic growth model
+        \citep{verhulst1838notice}, fitted here as a shared-parameter nonlinear
+        regression model. Unlike the neural models, it is fitted directly to the
+        original response values $y_i^{[j]}$. The only normalization used by
+        this baseline is the normalized time variable $\tau_i\in[0,1]$. Each
+        trial has its own observed initial condition, fixed at the first
+        measured value, but all trials share the same growth rate and carrying
+        capacity:
+        $$
+            \frac{d y^{[j]}}{d\tau}
+            =
+            r y^{[j]}\left(1-\frac{y^{[j]}}{K}\right),
+            \qquad
+            y^{[j]}(0)=y_0^{[j]}=y^{[j]}(t_0).
+        $$
+        The exact solution used in the fit is
+        $$
+            y^{[j]}(\tau)
+            =
+                \dfrac{K}{
+                    1 +
+                    \left(
+                        \dfrac{K - y_0^{[j]}}{ y_0^{[j]} }
+                    \right)
+                    \exp(-r\tau)
+                }.
+        $$
+        The unknown parameters of the classical fit are only $r$ and $K$; the
+        initial values $y_0^{[j]}$ are taken from the data and are not
+        optimized. The fit also requires positive observations, because the
+        closed-form logistic curve and the ratio $(K-y_0^{[j]})/y_0^{[j]}$ are
+        only meaningful for positive initial values.
+        Missing observations, if present, are excluded through the observed
+        index set $\Omega$.
+
+            The fitted parameters must satisfy $r>0$ and $K>\max_j y_0^{[j]}$.
+        Instead of optimizing constrained parameters directly, the
+        implementation optimizes two unconstrained real variables
+        $a, b \in\mathbb R$ and maps them to valid physical parameters with a
+        $\operatorname{softplus}$ transformation:
+        $$
+            r = \operatorname{softplus}(a)+10^{-6},
+                \qquad
+                K = K_{\min} +
+                \operatorname{softplus}(b)+10^{-6},
+        $$
+        where $K_{\min}=\max_j y_0^{[j]}+10^{-3}$ and
+        $$
+            \operatorname{softplus}(x)=\log(1+\exp(x)).
+        $$
+        The $\operatorname{softplus}$ function is a smooth differentiable
+        approximation to the positive part function. It maps every real number
+        to a positive value, behaves approximately like $\exp(x)$ for large
+        negative $x$, and behaves approximately like $x$ for large positive
+        $x$. This is useful for gradient-based fitting:
+        Adam can update the unconstrained variables $a$ and $b$ freely, while
+        the reported parameters $r$ and $K$ remain positive and the carrying
+        capacity stays above every initial condition. The small constants
+        $10^{-6}$ and $10^{-3}$ are numerical safeguards that avoid zero growth
+        and avoid a carrying capacity equal to an initial value.
+
+The raw parameters are initialized by applying the inverse softplus map. In the
+implementation, this gives an initial growth rate near $3.0$ on the normalized
+time scale, and an initial carrying capacity slightly above the largest
+observed response. At each training epoch the code applies the softplus
+transformation and evaluates the exact logistic solution for all trials and all
+observation times.
+
+The fitting criterion is the masked original-scale mean squared error
+$$
+  \mathcal L_{\mathrm{logistic}}(r,K)
+  =
+  \frac{1}{n}
+  \sum_{(i,j)\in\Omega}
+  \left(y_i^{[j]}-\widehat y^{[j]}(\tau_i)\right)^2.
+$$
+This can also be interpreted as a maximum-likelihood fit after adding a
+Gaussian observation-error model on the original response scale:
+$$
+  y_i^{[j]}
+  =
+  \widehat y^{[j]}(\tau_i;r,K)+\varepsilon_i^{[j]},
+  \qquad
+  \varepsilon_i^{[j]}\stackrel{\mathrm{ind}}{\sim}
+  \mathcal N(0,\sigma^2).
+$$
+For fixed $\sigma^2$, maximizing this Gaussian likelihood over $r$ and $K$ is
+equivalent to minimizing the sum of squared residuals. If $\sigma^2$ is also
+unknown, profiling it out gives
+$$
+  \widehat\sigma^2(r,K)
+  =
+  \frac{1}{n}
+  \sum_{(i,j)\in\Omega}
+  \left(y_i^{[j]}-\widehat y^{[j]}(\tau_i;r,K)\right)^2,
+$$
+and the maximizing values of $r$ and $K$ are again the nonlinear least-squares
+solution. Therefore the implemented classical fit is a profiled Gaussian
+maximum-likelihood estimate under an independent additive measurement-error
+assumption. It is not a transition likelihood for a stochastic logistic process.
+
+The code backpropagates through the closed-form expression above and applies an
+Adam update \citep{kingma2015adam} to $a$ and $b$. No numerical ODE solver is
+used for this classical baseline. This model was trained for 3000 Adam epochs
+with learning rate $5\times10^{-2}$.
+The fitted values were
+$$
+  \widehat r = 7.705769,
+  \qquad
+  \widehat K = 47.860203.
+$$
+Since $\tau=t/168$ for these data, the growth rate in the original time scale
+is approximately $\widehat r/168=0.045868$ per original time unit.
+
+\subsection{Neural ODE}
+
+The deterministic neural model is the non-autonomous Neural ODE
+\citep{chen2018neuralode}
+$$
+  \frac{d z}{d\tau} = f_\theta(\tau,z),
+  \qquad
+  z(0)=z_0.
+$$
+The fitted solution is a single population curve, not one curve per trial. The
+three trials are treated as replicate observations of the same underlying
+trajectory. On the original response scale the initial condition is
+$$
+  y_0 = y(t_0)
+  =
+  \frac{1}{J}\sum_{j=1}^J y_0^{[j]},
+$$
+the mean of the first observed values across trials. The corresponding
+normalized initial condition is
+$$
+  z_0 = \frac{y_0-\bar y}{s_y}.
+$$
+After solving the normalized ODE, the fitted value on the original scale is
+$$
+  \widehat y_i
+  =
+  \widehat y(t_i)
+  =
+  \bar y+s_y\widehat z(\tau_i;\theta).
+$$
+The same value $\widehat y_i$ is compared with every trial observation
+$y_i^{[j]}$ at time $t_i$.
+
+The right-hand side $f_\theta$ is a fully connected neural network with input
+$(\tau,z)\in\mathbb R^2$, two hidden layers, 32 hidden units per layer, and
+hyperbolic tangent activation:
+$$
+  h_1 = \tanh(W_1 x+b_1),\qquad
+  h_{\ell}=\tanh(W_{\ell}h_{\ell-1}+b_{\ell}),\qquad
+  f_\theta(x)=W_o h_2+b_o,
+$$
+where $x=(\tau,z)^T$. The network has 1185 trainable weights and biases.
+This count comes from the three affine layers:
+$$
+\begin{aligned}
+  \hbox{input to hidden 1:}&\quad 2\cdot 32+32=96,\\
+  \hbox{hidden 1 to hidden 2:}&\quad 32\cdot 32+32=1056,\\
+  \hbox{hidden 2 to output:}&\quad 32\cdot 1+1=33.
+\end{aligned}
+$$
+Thus $96+1056+33=1185$. The architecture was chosen as a compact smooth
+function approximator for a scalar time-dependent vector field. The input has
+only two coordinates, time and state, and the data set has only 45 scalar
+observations, so a very large network would make the comparison dominated by
+overparameterization. Two hidden layers with 32 units give substantially more
+flexibility than the two-parameter logistic curve while remaining small enough
+to train stably with weight decay. The $\tanh$ nonlinearity gives a smooth
+right-hand side, which is useful for ODE/SDE integration, and sigmoidal neural
+networks are classical universal approximators \citep{cybenko1989approximation}.
+The same architecture is used for the Neural ODE and for each Neural SDE
+coefficient so that differences between the deterministic and stochastic neural
+models are not caused by different network sizes.
+
+The ODE was solved at the observed normalized times using RK4 with step size
+$0.01$. The empirical loss was
+$$
+  \mathcal L_{\mathrm{ODE}}(\theta)
+  =
+  \frac{1}{n}
+  \sum_{(i,j)\in\Omega}
+  \left(z_i^{[j]}-\widehat z_i(\theta)\right)^2.
+$$
+Equivalently, in original response units this loss fits one curve
+$\widehat y_i$ to all three replicate measurements at the same time. The
+minimizer is therefore encouraged to pass through the center of the replicate
+cloud, while the ODE structure enforces a smooth dynamical trajectory.
+Training used Adam for 1000 epochs with learning rate $10^{-2}$ and weight
+decay $10^{-4}$ \citep{kingma2015adam}.
+
+\subsection{Neural SDE}
+
+The stochastic neural model is an Ito diffusion with neural drift and diffusion
+coefficients, following the Neural SDE modeling idea
+\citep{tzen2019neuralsde,kidger2021neuralsdegan}:
+$$
+  dZ_\tau
+  =
+  \mu_\theta(\tau,Z_\tau)\,d\tau
+  +
+  \sigma_\phi(\tau,Z_\tau)\,dW_\tau.
+$$
+Both the drift $\mu_\theta$ and the raw diffusion network use the same
+architecture as the Neural ODE: two hidden layers, 32 units per hidden layer,
+and $\tanh$ activation. The diffusion is constrained to be positive by
+$$
+  \sigma_\phi(\tau,z)
+  =
+  \operatorname{softplus}(g_\phi(\tau,z))+\sigma_{\min},
+  \qquad
+  \sigma_{\min}=10^{-3}.
+$$
+The total trainable parameter count is 2370, one copy of the 1185-parameter
+network for the drift and one for the diffusion.
+
+The SDE was trained with an Euler-Maruyama Gaussian transition likelihood
+\citep{kloeden1992numerical}. For successive observations separated by
+$\Delta\tau_i=\tau_{i+1}-\tau_i$, the approximation is
+$$
+  Z_{i+1}^{[j]}\mid Z_i^{[j]}
+  \sim
+  \mathcal N\left(
+    Z_i^{[j]}+\mu_\theta(\tau_i,Z_i^{[j]})\Delta\tau_i,\,
+    \sigma_\phi(\tau_i,Z_i^{[j]})^2\Delta\tau_i
+  \right).
+$$
+With the variance floor used in the implementation, define
+$$
+  m_i^{[j]}=z_i^{[j]}+\mu_\theta(\tau_i,z_i^{[j]})\Delta\tau_i,
+  \qquad
+  v_i^{[j]}=\sigma_\phi(\tau_i,z_i^{[j]})^2\Delta\tau_i+10^{-6}.
+$$
+The minimized negative log-likelihood is
+$$
+  \mathcal L_{\mathrm{SDE}}(\theta,\phi)
+  =
+  \frac{1}{|\Omega_{\mathrm{tr}}|}
+  \sum_{(i,j)\in\Omega_{\mathrm{tr}}}
+  \frac{1}{2}
+  \left[
+    \log(2\pi v_i^{[j]})
+    +
+    \frac{(z_{i+1}^{[j]}-m_i^{[j]})^2}{v_i^{[j]}}
+  \right],
+$$
+where $\Omega_{\mathrm{tr}}$ is the set of adjacent observed transitions.
+Training used Adam for 1000 epochs with learning rate $5\times10^{-3}$ and
+weight decay $10^{-4}$ \citep{kingma2015adam}. After training, 1000 Monte Carlo
+paths were simulated to estimate predictive means and central 90 percent
+intervals.
+
+\section{Comparison criteria}
+
+All model comparison metrics were computed on the original response scale using
+the fitted mean trajectory for each model. For models that produce one curve per
+trial, write this fitted value as $\widehat y_i^{[j]}$. For the single-curve
+Neural ODE, $\widehat y_i^{[j]}=\widehat y_i$ for every trial $j$. Let
+$$
+  \mathrm{SSE}
+  =
+  \sum_{(i,j)\in\Omega}(y_i^{[j]}-\widehat y_i^{[j]})^2,
+  \qquad
+  \mathrm{SST}
+  =
+  \sum_{(i,j)\in\Omega}(y_i^{[j]}-\bar y)^2.
+$$
+The root mean squared error is
+$$
+  \mathrm{RMSE}
+  =
+  \sqrt{\frac{\mathrm{SSE}}{n}},
+$$
+and the coefficient of determination is
+$$
+  R^2
+  =
+  1-\frac{\mathrm{SSE}}{\mathrm{SST}}.
+$$
+
+The numerical table below reports in-sample residual diagnostics: the models
+are trained on all observed entries in $\Omega$, and the same entries are used
+to compute RMSE and $R^2$. This is appropriate for checking interpolation
+quality, but it is not an out-of-sample generalization error. To estimate a
+test MSE for this time-series problem, the split should be made by time rather
+than by randomly sampling individual observations. Let
+$$
+  I_{\mathrm{train}}\subset \{0,\ldots,T-1\},
+  \qquad
+  I_{\mathrm{test}}\subset \{0,\ldots,T-1\},
+  \qquad
+  I_{\mathrm{train}}\cap I_{\mathrm{test}}=\varnothing,
+$$
+and define
+$$
+  \Omega_{\mathrm{train}}
+  =
+  \{(i,j)\in\Omega:i\in I_{\mathrm{train}}\},
+  \qquad
+  \Omega_{\mathrm{test}}
+  =
+  \{(i,j)\in\Omega:i\in I_{\mathrm{test}}\}.
+$$
+The Neural ODE is then trained by replacing $\Omega$ with
+$\Omega_{\mathrm{train}}$ in $\mathcal L_{\mathrm{ODE}}(\theta)$, while the test
+MSE is computed as
+$$
+  \mathrm{MSE}_{\mathrm{test}}
+  =
+  \frac{1}{|\Omega_{\mathrm{test}}|}
+  \sum_{(i,j)\in\Omega_{\mathrm{test}}}
+  \left(y_i^{[j]}-\widehat y_i\right)^2.
+$$
+For these data, a natural forecasting split is to train on early times and test
+on the last few time points, for example training through $t=132$ and testing
+at $t=144,156,168$. With only 15 time points, an alternative is a rolling
+leave-last-time-out protocol, such as training through $t=120$ and testing at
+$t=132$, then training through $t=132$ and testing at $t=144$, and so on.
+
+For AIC and BIC \citep{akaike1974newlook,schwarz1978estimating}, residuals were
+modeled as independent Gaussian errors with
+common variance $\sigma^2$. The maximum likelihood variance estimate is
+$$
+  \widehat\sigma^2 = \frac{\mathrm{SSE}}{n},
+$$
+which gives the maximized log-likelihood
+$$
+  \log \widehat L
+  =
+  -\frac{n}{2}
+  \left[
+    \log(2\pi)+1+\log(\widehat\sigma^2)
+  \right].
+$$
+The criteria are
+$$
+  \mathrm{AIC}=2k-2\log\widehat L,
+  \qquad
+  \mathrm{BIC}=k\log(n)-2\log\widehat L.
+$$
+Here $k=p+1$, where $p$ is the number of fitted dynamical parameters and the
+additional parameter is the residual variance. Thus $k=3$ for the classical
+logistic model, $k=1186$ for the Neural ODE, and $k=2371$ for the Neural SDE.
+Initial conditions are not counted as fitted parameters because they are taken
+directly from the first row of the data; for the single-curve Neural ODE this
+means using $y_0=J^{-1}\sum_{j=1}^J y_0^{[j]}$.
+
+The 90 percent interval coverage is computed only for the Neural SDE, because
+only this model produces a predictive distribution rather than a single fitted
+mean curve. Let $B=1000$ be the number of simulated SDE paths and let
+$Y_i^{(b)[j]}$ denote the simulated original-scale value for path $b$, time
+$i$, and trial $j$. For interval level $\gamma=0.90$, set
+$\alpha=(1-\gamma)/2=0.05$ and define the pointwise empirical interval
+$$
+  L_i^{[j]}=Q_{\alpha}\left(\{Y_i^{(b)[j]}\}_{b=1}^B\right),
+  \qquad
+  U_i^{[j]}=Q_{1-\alpha}\left(\{Y_i^{(b)[j]}\}_{b=1}^B\right),
+$$
+where $Q_q$ is the empirical $q$-quantile. The reported empirical coverage is
+$$
+  \widehat C_{0.90}
+  =
+  \frac{1}{n}
+  \sum_{(i,j)\in\Omega}
+  \mathbf 1\{L_i^{[j]}\le y_i^{[j]}\le U_i^{[j]}\}.
+$$
+Thus an observed data point is counted as covered if it lies between the 5
+percent and 95 percent Monte Carlo quantiles for the same time and trial. The
+reported value $0.9333$ means that 42 of the 45 observed responses fall inside
+their corresponding central 90 percent intervals. The mean interval width is
+the average of $U_i^{[j]}-L_i^{[j]}$ over the same observed entries. This is an
+in-sample empirical calibration diagnostic for the fitted Neural SDE, not an
+out-of-sample guarantee.
+
+\section{Numerical results}
+
+\begin{table}[htbp]
+\centering
+\caption{Model comparison on the original response scale. Lower RMSE, AIC, and
+BIC are better; larger $R^2$ is better.}
+\begin{tabular}{lrrrrrr}
+\toprule
+Model & RMSE & $R^2$ & AIC & BIC & $p$ & $k$ \\
+\midrule
+Classical logistic ODE & 1.4291 & 0.9826 & 165.84 & 171.26 & 2 & 3 \\
+Neural ODE             & 1.0281 & 0.9910 & 2502.20 & 4644.90 & 1185 & 1186 \\
+Neural SDE             & 2.0312 & 0.9649 & 4933.48 & 9217.08 & 2370 & 2371 \\
+\bottomrule
+\end{tabular}
+\label{tab:metrics}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Additional stochastic-model diagnostics.}
+\begin{tabular}{lrr}
+\toprule
+Model & 90 percent interval coverage & Mean interval width \\
+\midrule
+Neural SDE & 0.9333 & 7.3887 \\
+\bottomrule
+\end{tabular}
+\label{tab:sde-intervals}
+\end{table}
+
+The Neural ODE has the best in-sample interpolation accuracy, with the smallest
+RMSE and largest $R^2$. The classical logistic ODE is less flexible, but it
+still explains approximately 98.3 percent of the observed variance. Because
+AIC and BIC penalize the number of fitted parameters, the two-parameter
+logistic model is strongly preferred by these information criteria. The Neural
+SDE has the largest RMSE among the three fitted mean curves, but its 90 percent
+predictive interval coverage is close to the nominal level.
+
+The AIC and BIC values for the neural models should be interpreted as
+parameter-penalized residual criteria for the fitted mean curves. They are not
+the same as comparing the SDE transition likelihood directly to an exact ODE
+likelihood. Their practical role here is to quantify the tradeoff between
+in-sample residual accuracy and model complexity.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.96\textwidth]{water_kefir_neural_dynamics_comparison.png}
+\caption{Observed trial data, the single Neural ODE population curve, fitted
+mean trajectories from the comparison models, and the Neural SDE central
+90 percent predictive interval. The Neural ODE is fitted as one curve against
+all three trial realizations, while the logistic ODE captures the saturating
+growth pattern with a much smaller parameter count.}
+\label{fig:fit-comparison}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.96\textwidth]{training_objectives.png}
+\caption{Training objective histories from the saved experiment outputs. The
+three objectives are not on the same statistical scale: the classical model
+uses original-scale MSE, the Neural ODE uses normalized MSE, and the Neural SDE
+uses normalized transition negative log-likelihood. The plots are therefore
+optimization diagnostics, not direct model-comparison metrics.}
+\label{fig:training-objectives}
+\end{figure}
+
+\section{Reproducibility}
+
+The comparison was generated by the \texttt{kefir-sde-compare} command-line
+tool, implemented in \path{src/kefir_models/sde_compare.py}. The data file
+used in this directory is named \path{data/raw/waterKefirTrialsReferece.csv}.
+The following command
+reproduces the reported outputs from the project root:
+\begin{verbatim}
+kefir-sde-compare \
+  --data-path data/raw/waterKefirTrialsReferece.csv \
+  --output-dir outputs/neural_sde_comparison_outputs \
+  --classical-epochs 3000 \
+  --classical-learning-rate 5e-2 \
+  --ode-epochs 1000 \
+  --ode-learning-rate 1e-2 \
+  --sde-epochs 1000 \
+  --sde-learning-rate 5e-3 \
+  --hidden-units 32 \
+  --hidden-layers 2 \
+  --weight-decay 1e-4 \
+  --min-diffusion 1e-3 \
+  --ode-method rk4 \
+  --sde-paths 1000 \
+  --interval-level 0.90 \
+  --seed 7 \
+  --device auto \
+  --plot
+\end{verbatim}
+
+The main output files used in this report are:
+\begin{itemize}
+  \item \path{outputs/neural_sde_comparison_outputs/model_comparison_metrics.csv},
+  \item \path{outputs/neural_sde_comparison_outputs/classical_logistic_parameters.csv},
+  \item \path{outputs/neural_sde_comparison_outputs/water_kefir_neural_dynamics_comparison.csv},
+  \item \path{outputs/neural_sde_comparison_outputs/water_kefir_neural_dynamics_comparison.png}.
+\end{itemize}
+
+\bibliographystyle{plainnat}
+\bibliography{kefir_model_comparison_references}
+
+\end{document}

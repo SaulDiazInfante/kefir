@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kefir-models"
+version = "0.1.0"
+description = "Neural ODE and SDE models for water kefir fermentation"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "torch>=2.0",
+    "torchdiffeq>=0.2",
+    "matplotlib>=3.7"
+]
+
+[project.scripts]
+kefir-ode-fit = "kefir_models.ode_fit:main"
+kefir-sde-compare = "kefir_models.sde_compare:main"
+kefir-plot-ode-fit = "kefir_models.plot_ode_fit:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

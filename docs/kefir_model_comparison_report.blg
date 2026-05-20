@@ -1,0 +1,46 @@
+This is BibTeX, Version 0.99d (TeX Live 2025)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: kefir_model_comparison_report.aux
+The style file: plainnat.bst
+Database file #1: kefir_model_comparison_references.bib
+You've used 9 entries,
+            2773 wiz_defined-function locations,
+            670 strings with 7075 characters,
+and the built_in function-call counts, 4426 in all, are:
+= -- 437
+> -- 181
+< -- 11
++ -- 63
+- -- 54
+* -- 343
+:= -- 668
+add.period$ -- 46
+call.type$ -- 9
+change.case$ -- 44
+chr.to.int$ -- 9
+cite$ -- 18
+duplicate$ -- 214
+empty$ -- 378
+format.name$ -- 69
+if$ -- 950
+int.to.chr$ -- 1
+int.to.str$ -- 1
+missing$ -- 10
+newline$ -- 71
+num.names$ -- 36
+pop$ -- 77
+preamble$ -- 1
+purify$ -- 36
+quote$ -- 0
+skip$ -- 163
+stack$ -- 0
+substring$ -- 198
+swap$ -- 38
+text.length$ -- 4
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 94
+warning$ -- 0
+while$ -- 41
+width$ -- 0
+write$ -- 161

@@ -1,0 +1,84 @@
+\begin{thebibliography}{9}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Akaike(1974)]{akaike1974newlook}
+Hirotugu Akaike.
+\newblock A new look at the statistical model identification.
+\newblock \emph{IEEE Transactions on Automatic Control}, 19\penalty0
+  (6):\penalty0 716--723, 1974.
+\newblock \doi{10.1109/TAC.1974.1100705}.
+\newblock URL \url{https://doi.org/10.1109/TAC.1974.1100705}.
+
+\bibitem[Chen et~al.(2018)Chen, Rubanova, Bettencourt, and
+  Duvenaud]{chen2018neuralode}
+Ricky T.~Q. Chen, Yulia Rubanova, Jesse Bettencourt, and David~K. Duvenaud.
+\newblock Neural ordinary differential equations.
+\newblock In \emph{Advances in Neural Information Processing Systems 31}, pages
+  6571--6583, 2018.
+\newblock \doi{10.48550/arXiv.1806.07366}.
+\newblock URL
+  \url{https://papers.nips.cc/paper/7892-neural-ordinary-differential-equations}.
+
+\bibitem[Cybenko(1989)]{cybenko1989approximation}
+George Cybenko.
+\newblock Approximation by superpositions of a sigmoidal function.
+\newblock \emph{Mathematics of Control, Signals and Systems}, 2\penalty0
+  (4):\penalty0 303--314, 1989.
+\newblock \doi{10.1007/BF02551274}.
+\newblock URL \url{https://doi.org/10.1007/BF02551274}.
+
+\bibitem[Kidger et~al.(2021)Kidger, Foster, Li, and
+  Lyons]{kidger2021neuralsdegan}
+Patrick Kidger, James Foster, Xuechen Li, and Terry~J. Lyons.
+\newblock Neural {SDEs} as infinite-dimensional {GANs}.
+\newblock In \emph{Proceedings of the 38th International Conference on Machine
+  Learning}, volume 139 of \emph{Proceedings of Machine Learning Research},
+  pages 5453--5463. PMLR, 2021.
+\newblock \doi{10.48550/arXiv.2102.03657}.
+\newblock URL \url{https://proceedings.mlr.press/v139/kidger21b.html}.
+
+\bibitem[Kingma and Ba(2015)]{kingma2015adam}
+Diederik~P. Kingma and Jimmy Ba.
+\newblock Adam: A method for stochastic optimization.
+\newblock In \emph{International Conference on Learning Representations}, 2015.
+\newblock \doi{10.48550/arXiv.1412.6980}.
+\newblock URL \url{https://arxiv.org/abs/1412.6980}.
+
+\bibitem[Kloeden and Platen(1992)]{kloeden1992numerical}
+Peter~E. Kloeden and Eckhard Platen.
+\newblock \emph{Numerical Solution of Stochastic Differential Equations},
+  volume~23 of \emph{Applications of Mathematics}.
+\newblock Springer, Berlin, Heidelberg, 1992.
+\newblock \doi{10.1007/978-3-662-12616-5}.
+\newblock URL \url{https://doi.org/10.1007/978-3-662-12616-5}.
+
+\bibitem[Schwarz(1978)]{schwarz1978estimating}
+Gideon Schwarz.
+\newblock Estimating the dimension of a model.
+\newblock \emph{The Annals of Statistics}, 6\penalty0 (2):\penalty0 461--464,
+  1978.
+\newblock \doi{10.1214/aos/1176344136}.
+\newblock URL \url{https://doi.org/10.1214/aos/1176344136}.
+
+\bibitem[Tzen and Raginsky(2019)]{tzen2019neuralsde}
+Belinda Tzen and Maxim Raginsky.
+\newblock Neural stochastic differential equations: Deep latent gaussian models
+  in the diffusion limit.
+\newblock \emph{arXiv preprint arXiv:1905.09883}, 2019.
+\newblock \doi{10.48550/arXiv.1905.09883}.
+\newblock URL \url{https://arxiv.org/abs/1905.09883}.
+
+\bibitem[Verhulst(1838)]{verhulst1838notice}
+Pierre-Francois Verhulst.
+\newblock Notice sur la loi que la population suit dans son accroissement.
+\newblock \emph{Correspondance Mathematique et Physique}, 10:\penalty0
+  113--121, 1838.
+\newblock URL
+  \url{https://www.scienceopen.com/document?vid=b51b58ae-889e-49ac-bc75-759cffcdc238}.
+\newblock No DOI located for the original nineteenth-century article.
+
+\end{thebibliography}
