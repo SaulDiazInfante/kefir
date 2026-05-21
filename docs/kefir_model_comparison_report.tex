@@ -6,7 +6,7 @@
 \usepackage[numbers]{natbib}
 \usepackage{hyperref}
 
-\graphicspath{{./}{../outputs/neural_sde_comparison_outputs/}{../neural_sde_comparison_outputs/}{../logistic_pinn_outputs/}}
+\graphicspath{{./}{../outputs/neural_sde_comparison_outputs/}{../outputs/all_model_comparison_outputs/}{../neural_sde_comparison_outputs/}{../logistic_pinn_outputs/}}
 
 \title{Comparison of Classical, Neural ODE/SDE, and Logistic PINN Fits for Water Kefir Data}
 \author{}
@@ -590,6 +590,23 @@ $$
     \frac{(y_{i+1}^{[j]}-m_i^{[j]})^2}{v_i^{[j]}}
   \right].
 $$
+Operationally, this loss is computed one observed step at a time. For each
+complete adjacent pair, the current value $y_i^{[j]}$ and time increment
+$\Delta t_i$ determine the Euler-Maruyama mean $m_i^{[j]}$ and variance
+$v_i^{[j]}$. The difference $y_{i+1}^{[j]}-m_i^{[j]}$ is the one-step
+innovation around the logistic drift. The Gaussian negative log-likelihood
+then combines two penalties: a scaled squared innovation
+$(y_{i+1}^{[j]}-m_i^{[j]})^2/v_i^{[j]}$, which penalizes transitions that are
+far from the predicted mean, and a $\log(2\pi v_i^{[j]})$ term, which penalizes
+unnecessarily large transition variance. The reported transition NLL is the
+average of these per-transition contributions over $\Omega_{\mathrm{tr}}$.
+Thus a smaller value means that the observed kefir growth increments are more
+plausible under the stochastic logistic dynamics. The parameter $\sigma$ is
+identified through this term because it controls $v_i^{[j]}$: if $\sigma$ is
+too small, ordinary short-time fluctuations are assigned very low probability,
+whereas if $\sigma$ is too large, the log-variance part of the likelihood
+penalizes the excess uncertainty.
+
 The total stochastic objective is
 $$
   \mathcal L_{\mathrm{stoPINN}}
@@ -878,6 +895,17 @@ transition-likelihood term used to identify $\sigma$.}
 
 \begin{figure}[htbp]
 \centering
+\includegraphics[width=0.96\textwidth]{water_kefir_all_models_comparison.png}
+\caption{Combined comparison of the classical logistic ODE, Neural ODE, Neural
+SDE, deterministic logistic PINN, and stochastic logistic PINN/SDE outputs. The
+plot overlays the two previously separate comparison sequences on a common
+original response scale so that fitted mean trajectories and predictive bands
+can be visually compared.}
+\label{fig:all-model-comparison}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
 \includegraphics[width=0.96\textwidth]{water_kefir_logistic_pinn_losses.png}
 \caption{Training objectives for the deterministic and stochastic logistic
 PINNs. The deterministic objective combines normalized data, initial-condition,
@@ -889,11 +917,13 @@ Euler-Maruyama transition negative log-likelihood.}
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.96\textwidth]{training_objectives.png}
-\caption{Training objective histories from the saved experiment outputs. The
-three objectives are not on the same statistical scale: the classical model
-uses original-scale MSE, the Neural ODE uses normalized MSE, and the Neural SDE
-uses normalized transition negative log-likelihood. The plots are therefore
-optimization diagnostics, not direct model-comparison metrics.}
+\caption{Training objective histories from the saved experiment outputs,
+re-expressed by scale. The first panel shows the objectives on normalized
+training scales, the second panel compares the classical and Neural ODE MSE
+histories on the original response scale, and the third panel shows the Neural
+SDE transition negative log-likelihood on the original response scale. These
+histories are optimization diagnostics, not direct model-comparison metrics,
+because MSE and transition likelihood remain different objective types.}
 \label{fig:training-objectives}
 \end{figure}
 
@@ -935,6 +965,18 @@ kefir-logistic-pinn-compare \
   --config logistic_pinn_config_reference.json
 \end{verbatim}
 
+The following plotting-only command builds the third step-by-step sequence that
+overlays the classical logistic ODE, Neural ODE, Neural SDE, deterministic
+logistic PINN, and stochastic logistic PINN/SDE outputs:
+\begin{verbatim}
+kefir-plot-all-models \
+  --neural-comparison-csv outputs/neural_sde_comparison_outputs/water_kefir_neural_dynamics_comparison.csv \
+  --pinn-comparison-csv logistic_pinn_outputs/water_kefir_logistic_pinn_comparison.csv \
+  --pinn-dense-csv logistic_pinn_outputs/water_kefir_logistic_pinn_dense.csv \
+  --output-dir outputs/all_model_comparison_outputs \
+  --interval-level 0.90
+\end{verbatim}
+
 Equivalently, the expanded logistic PINN configuration is:
 \begin{verbatim}
 kefir-logistic-pinn-compare \
@@ -964,6 +1006,9 @@ The main output files used in this report are:
   \item \path{outputs/neural_sde_comparison_outputs/classical_logistic_parameters.csv},
   \item \path{outputs/neural_sde_comparison_outputs/water_kefir_neural_dynamics_comparison.csv},
   \item \path{outputs/neural_sde_comparison_outputs/water_kefir_neural_dynamics_comparison.png},
+  \item \path{outputs/neural_sde_comparison_outputs/training_objective_scales.csv},
+  \item \path{outputs/neural_sde_comparison_outputs/training_objectives.png},
+  \item \path{outputs/all_model_comparison_outputs/water_kefir_all_models_comparison.png},
   \item \path{logistic_pinn_outputs/water_kefir_logistic_pinn_metrics.csv},
   \item \path{logistic_pinn_outputs/water_kefir_logistic_pinn_parameters.csv},
   \item \path{logistic_pinn_outputs/water_kefir_logistic_pinn_comparison.csv},

@@ -17,6 +17,7 @@ After installation, the following command-line tools will be available:
 - `kefir-ode-fit`
 - `kefir-sde-compare`
 - `kefir-logistic-pinn-compare`
+- `kefir-plot-all-models`
 
 ### Example
 
@@ -31,4 +32,12 @@ inverse models and generate comparison plots:
 
 ```bash
 kefir-logistic-pinn-compare --config logistic_pinn_config_reference.json
+```
+
+To build the combined step-by-step sequence comparing the classical logistic
+ODE, Neural ODE, Neural SDE, deterministic logistic PINN, and stochastic
+logistic PINN/SDE from saved outputs:
+
+```bash
+kefir-plot-all-models
 ```

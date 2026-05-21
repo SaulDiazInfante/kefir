@@ -853,6 +853,144 @@ def save_comparison_plot(
     plt.close(fig)
 
 
+def build_training_objective_scales_frame(
+    data: TrainingData,
+    classical_history: list[float],
+    ode_history: list[float],
+    sde_history: list[float],
+) -> pd.DataFrame:
+    """Return training histories on normalized and original response scales."""
+
+    value_std = data.scaling.value_std
+    if value_std <= 0.0:
+        raise ValueError("The response standard deviation must be positive.")
+
+    value_variance = value_std**2
+    rows: list[dict[str, object]] = []
+
+    for epoch, loss in enumerate(classical_history, start=1):
+        rows.append(
+            {
+                "model": "Classical logistic ODE",
+                "objective_type": "mse",
+                "epoch": epoch,
+                "normalized_value": loss / value_variance,
+                "original_scale_value": loss,
+            },
+        )
+
+    for epoch, loss in enumerate(ode_history, start=1):
+        rows.append(
+            {
+                "model": "Neural ODE",
+                "objective_type": "mse",
+                "epoch": epoch,
+                "normalized_value": loss,
+                "original_scale_value": loss * value_variance,
+            },
+        )
+
+    for epoch, loss in enumerate(sde_history, start=1):
+        rows.append(
+            {
+                "model": "Neural SDE",
+                "objective_type": "transition_nll",
+                "epoch": epoch,
+                "normalized_value": loss,
+                # If y = mean + s_y z, then -log p_y(y) = -log p_z(z) + log(s_y).
+                "original_scale_value": loss + math.log(value_std),
+            },
+        )
+
+    return pd.DataFrame(rows)
+
+
+def save_training_objective_scale_plot(
+    history_frame: pd.DataFrame,
+    path: Path,
+) -> None:
+    """Save training histories grouped by normalized and original scales."""
+
+    required_columns = {
+        "model",
+        "objective_type",
+        "epoch",
+        "normalized_value",
+        "original_scale_value",
+    }
+    missing_columns = required_columns.difference(history_frame.columns)
+    if missing_columns:
+        missing = ", ".join(sorted(missing_columns))
+        raise ValueError(f"Missing history columns: {missing}")
+
+    os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
+    import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
+
+    colors = {
+        "Classical logistic ODE": "#2a9d8f",
+        "Neural ODE": "#2364aa",
+        "Neural SDE": "#d95f02",
+    }
+    panel_specs = [
+        {
+            "title": "Normalized training scale",
+            "value_column": "normalized_value",
+            "models": ["Classical logistic ODE", "Neural ODE", "Neural SDE"],
+            "ylabel": "Objective value",
+            "yscale": "symlog",
+        },
+        {
+            "title": "Original response MSE",
+            "value_column": "original_scale_value",
+            "models": ["Classical logistic ODE", "Neural ODE"],
+            "ylabel": "MSE",
+            "yscale": "log",
+        },
+        {
+            "title": "Original response transition NLL",
+            "value_column": "original_scale_value",
+            "models": ["Neural SDE"],
+            "ylabel": "NLL",
+            "yscale": "log",
+        },
+    ]
+
+    fig, axes = plt.subplots(1, 3, figsize=(14.5, 4.8))
+    for axis, spec in zip(axes, panel_specs):
+        for model in spec["models"]:
+            model_frame = history_frame[history_frame["model"] == model]
+            axis.plot(
+                model_frame["epoch"],
+                model_frame[spec["value_column"]],
+                color=colors[model],
+                linewidth=2.0,
+                label=model,
+            )
+
+        plotted_values = pd.to_numeric(
+            history_frame[
+                history_frame["model"].isin(spec["models"])
+            ][spec["value_column"]],
+            errors="coerce",
+        )
+        if spec["yscale"] == "log" and (plotted_values > 0.0).all():
+            axis.set_yscale("log")
+        else:
+            axis.set_yscale("symlog", linthresh=1e-2)
+            axis.axhline(0.0, color="#777777", linewidth=0.8, alpha=0.55)
+
+        axis.set_title(spec["title"])
+        axis.set_xlabel("Epoch")
+        axis.set_ylabel(spec["ylabel"])
+        axis.grid(alpha=0.25)
+        axis.legend(fontsize=8)
+
+    fig.suptitle("Training Objective Histories by Scale", y=1.02)
+    fig.tight_layout()
+    fig.savefig(path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
 def save_outputs(
     output_dir: Path,
     data: TrainingData,
@@ -878,9 +1016,18 @@ def save_outputs(
     classical_history_path = output_dir / "classical_logistic_training_loss.csv"
     classical_parameters_path = output_dir / "classical_logistic_parameters.csv"
     plot_path = output_dir / "water_kefir_neural_dynamics_comparison.png"
+    objective_scales_path = output_dir / "training_objective_scales.csv"
+    objective_plot_path = output_dir / "training_objectives.png"
+    objective_scales_frame = build_training_objective_scales_frame(
+        data=data,
+        classical_history=classical_fit.history,
+        ode_history=ode_history,
+        sde_history=sde_history,
+    )
 
     comparison_frame.to_csv(comparison_path, index=False)
     metrics_frame.to_csv(metrics_path, index=False)
+    objective_scales_frame.to_csv(objective_scales_path, index=False)
     pd.DataFrame(
         {
             "epoch": np.arange(1, len(ode_history) + 1),
@@ -936,10 +1083,15 @@ def save_outputs(
             interval_level,
             plot_path,
         )
+        save_training_objective_scale_plot(
+            objective_scales_frame,
+            objective_plot_path,
+        )
 
     print(metrics_frame.to_string(index=False))
     print(f"Saved comparison data to {comparison_path}")
     print(f"Saved comparison metrics to {metrics_path}")
+    print(f"Saved scaled training objectives to {objective_scales_path}")
     print(f"Saved ODE model checkpoint to {ode_model_path}")
     print(f"Saved ODE training loss to {ode_history_path}")
     print(f"Saved SDE model checkpoint to {sde_model_path}")
@@ -948,6 +1100,7 @@ def save_outputs(
     print(f"Saved classical logistic training loss to {classical_history_path}")
     if plot:
         print(f"Saved comparison plot to {plot_path}")
+        print(f"Saved training objective plot to {objective_plot_path}")
 
 
 def main() -> None:
