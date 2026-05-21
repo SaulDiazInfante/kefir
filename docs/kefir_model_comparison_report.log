@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.11.7)  20 MAY 2026 14:23
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.11.7)  20 MAY 2026 18:44
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -412,81 +412,119 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 [4]
 
 [5]
+
+[6]
+
+[7]
+
+[8]
+
+[9]
+
+[10]
+
+[11]
 <../outputs/neural_sde_comparison_outputs/water_kefir_neural_dynamics_compariso
-n.png, id=89, 686.565pt x 419.166pt>
+n.png, id=160, 686.565pt x 419.166pt>
 File: ../outputs/neural_sde_comparison_outputs/water_kefir_neural_dynamics_comp
 arison.png Graphic file (type png)
 <use ../outputs/neural_sde_comparison_outputs/water_kefir_neural_dynamics_compa
 rison.png>
 Package pdftex.def Info: ../outputs/neural_sde_comparison_outputs/water_kefir_n
-eural_dynamics_comparison.png  used on input line 488.
+eural_dynamics_comparison.png  used on input line 859.
 (pdftex.def)             Requested size: 450.96797pt x 275.32645pt.
-<../outputs/neural_sde_comparison_outputs/training_objectives.png, id=91, 903.3
-75pt x 252.945pt>
+<../logistic_pinn_outputs/water_kefir_logistic_pinn_comparison.png, id=162, 758
+.835pt x 433.62pt>
+File: ../logistic_pinn_outputs/water_kefir_logistic_pinn_comparison.png Graphic
+ file (type png)
+<use ../logistic_pinn_outputs/water_kefir_logistic_pinn_comparison.png>
+Package pdftex.def Info: ../logistic_pinn_outputs/water_kefir_logistic_pinn_com
+parison.png  used on input line 870.
+(pdftex.def)             Requested size: 450.96797pt x 257.69943pt.
+<../logistic_pinn_outputs/water_kefir_logistic_pinn_losses.png, id=163, 903.375
+pt x 346.896pt>
+File: ../logistic_pinn_outputs/water_kefir_logistic_pinn_losses.png Graphic fil
+e (type png)
+<use ../logistic_pinn_outputs/water_kefir_logistic_pinn_losses.png>
+Package pdftex.def Info: ../logistic_pinn_outputs/water_kefir_logistic_pinn_los
+ses.png  used on input line 881.
+(pdftex.def)             Requested size: 450.96797pt x 173.17232pt.
+<../outputs/neural_sde_comparison_outputs/training_objectives.png, id=164, 903.
+375pt x 252.945pt>
 File: ../outputs/neural_sde_comparison_outputs/training_objectives.png Graphic 
 file (type png)
 <use ../outputs/neural_sde_comparison_outputs/training_objectives.png>
 Package pdftex.def Info: ../outputs/neural_sde_comparison_outputs/training_obje
-ctives.png  used on input line 499.
+ctives.png  used on input line 891.
 (pdftex.def)             Requested size: 450.96797pt x 126.27148pt.
 
+Overfull \hbox (32.63152pt too wide) in paragraph at lines 902--910
+\OT1/cmr/m/n/10.95 The orig-i-nal clas-si-cal, Neu-ral ODE, and Neu-ral SDE com
+-par-i-son was gen-er-ated by the $\OT1/cmtt/m/n/10.95 kefir-[]sde-[]compare$
+ []
 
-[6]
 
-[7 <../outputs/neural_sde_comparison_outputs/water_kefir_neural_dynamics_compar
-ison.png> <../outputs/neural_sde_comparison_outputs/training_objectives.png>]
-Overfull \hbox (0.269pt too wide) in paragraph at lines 541--542
+
+[12 <../outputs/neural_sde_comparison_outputs/water_kefir_neural_dynamics_compa
+rison.png>]
+
+[13 <../logistic_pinn_outputs/water_kefir_logistic_pinn_comparison.png> <../log
+istic_pinn_outputs/water_kefir_logistic_pinn_losses.png>]
+
+[14 <../outputs/neural_sde_comparison_outputs/training_objectives.png>]
+Overfull \hbox (0.269pt too wide) in paragraph at lines 965--966
 []$\OT1/cmtt/m/n/10.95 outputs / neural _ sde _ comparison _ outputs / water _ 
 kefir _ neural _ dynamics _ comparison .
  []
 
 
-Overfull \hbox (0.269pt too wide) in paragraph at lines 542--543
+Overfull \hbox (0.269pt too wide) in paragraph at lines 966--967
 []$\OT1/cmtt/m/n/10.95 outputs / neural _ sde _ comparison _ outputs / water _ 
 kefir _ neural _ dynamics _ comparison .
  []
 
 (./kefir_model_comparison_report.bbl
 
-[8{/usr/local/texlive/2024/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc
-}])
+[15{/usr/local/texlive/2024/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.en
+c}])
 
-[9] (./kefir_model_comparison_report.aux)
+[16] (./kefir_model_comparison_report.aux)
  ***********
 LaTeX2e <2025-06-01> patch level 1
 L3 programming layer <2025-08-13>
  ***********
 Package rerunfilecheck Info: File `kefir_model_comparison_report.out' has not c
 hanged.
-(rerunfilecheck)             Checksum: 001E38A433BF4E2232775ABCA37EFD92;1015.
+(rerunfilecheck)             Checksum: C36B957BAE14401CE03F855A8DA947DE;1896.
  ) 
 Here is how much of TeX's memory you used:
- 10616 strings out of 467800
- 161290 string characters out of 5431882
- 582697 words of memory out of 5000000
- 39107 multiletter control sequences out of 15000+600000
+ 10684 strings out of 467800
+ 163054 string characters out of 5431882
+ 585704 words of memory out of 5000000
+ 39137 multiletter control sequences out of 15000+600000
  636321 words of font info for 75 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 75i,9n,79p,530b,563s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 75i,10n,79p,531b,628s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb
 ></usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb>
 </usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb><
-/usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></
-usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></us
-r/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/
-local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/lo
-cal/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pfb></usr/local
-/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/local/te
-xlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/tex
-live/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/texli
-ve/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/local/texliv
-e/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/local/texlive
-/2024/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></usr/local/tex
-live/2024/texmf-dist/fonts/type1/public/cm-super/sfrm1095.pfb>
-Output written on kefir_model_comparison_report.pdf (9 pages, 469029 bytes).
+/usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cmextra/cmex8.pf
+b></usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb
+></usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb><
+/usr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></u
+sr/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr
+/local/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pfb></usr/lo
+cal/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/local
+/texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/
+texlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/te
+xlive/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/local/tex
+live/2024/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/local/texl
+ive/2024/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></usr/local/
+texlive/2024/texmf-dist/fonts/type1/public/cm-super/sfrm1095.pfb>
+Output written on kefir_model_comparison_report.pdf (16 pages, 1041022 bytes).
 PDF statistics:
- 206 PDF objects out of 1000 (max. 8388607)
- 159 compressed objects within 2 object streams
- 32 named destinations out of 1000 (max. 500000)
- 75 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 298 PDF objects out of 1000 (max. 8388607)
+ 237 compressed objects within 3 object streams
+ 70 named destinations out of 1000 (max. 500000)
+ 117 words of extra memory for PDF output out of 10000 (max. 10000000)
 

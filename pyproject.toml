@@ -23,6 +23,7 @@ dependencies = [
 kefir-ode-fit = "kefir_models.ode_fit:main"
 kefir-sde-compare = "kefir_models.sde_compare:main"
 kefir-plot-ode-fit = "kefir_models.plot_ode_fit:main"
+kefir-logistic-pinn-compare = "kefir_models.logistic_pinn_compare:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
