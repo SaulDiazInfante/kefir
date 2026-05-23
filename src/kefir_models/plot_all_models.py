@@ -13,29 +13,17 @@ from pathlib import Path
 
 import pandas as pd
 
-
-COLORS = {
-    "observed_mean": "#111111",
-    "classical_logistic": "#2a9d8f",
-    "neural_ode": "#2364aa",
-    "neural_sde": "#e66101",
-    "neural_sde_band": "#2dcdb0",
-    "deterministic_pinn": "#6a3d9a",
-    "stochastic_pinn_drift": "#c51b7d",
-    "logistic_pinn_sde": "#8c2d04",
-    "logistic_pinn_sde_band": "#fdae61",
-}
-TRIAL_COLORS = [
-    "#1b9e77",
-    "#d95f02",
-    "#7570b3",
-    "#e7298a",
-    "#66a61e",
-    "#e6ab02",
-    "#a6761d",
-    "#666666",
-]
-TRIAL_MARKERS = ["o", "s", "^", "v", "D", "p", "*", "X"]
+from kefir_models.plot_style import (
+    COMPARISON_FIGURE_SIZE,
+    COMPARISON_LAYOUT,
+    MODEL_COLORS,
+    MODEL_LABELS,
+    apply_comparison_axis_style,
+    deduplicated_legend,
+    model_line_style,
+    save_fixed_layout_png,
+    trial_line_style,
+)
 
 
 def parse_args(args: list[str] | None = None) -> argparse.Namespace:
@@ -162,20 +150,6 @@ def _compute_axis_limits(
     )
 
 
-def _deduplicated_legend(axis) -> None:
-    """Place one legend entry per label outside the plotting area."""
-
-    handles, labels = axis.get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    axis.legend(
-        by_label.values(),
-        by_label.keys(),
-        bbox_to_anchor=(1.04, 1.0),
-        loc="upper left",
-        fontsize=8.5,
-    )
-
-
 def save_all_model_comparison_sequence(
     neural_frame: pd.DataFrame,
     pinn_frame: pd.DataFrame,
@@ -218,8 +192,8 @@ def save_all_model_comparison_sequence(
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
     import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
 
-    fig, axis = plt.subplots(figsize=(11.5, 5.9))
-    fig.subplots_adjust(right=0.68, bottom=0.15)
+    fig, axis = plt.subplots(figsize=COMPARISON_FIGURE_SIZE)
+    fig.subplots_adjust(**COMPARISON_LAYOUT)
     x_limits, y_limits = _compute_axis_limits(
         neural_frame,
         pinn_frame,
@@ -228,18 +202,16 @@ def save_all_model_comparison_sequence(
     )
     axis.set_xlim(*x_limits)
     axis.set_ylim(*y_limits)
-    axis.set_xlabel("Time (hrs)")
-    axis.set_ylabel(r"Kefir wet biomass $(\mathrm{g/L})$")
-    axis.grid(alpha=0.25)
+    apply_comparison_axis_style(axis)
 
     neural_time = neural_frame["time"]
     pinn_time = pinn_curve_frame["time"]
 
     def save_step(step_number: int, suffix: str, title: str) -> None:
         axis.set_title(title)
-        _deduplicated_legend(axis)
+        deduplicated_legend(axis)
         path = output_dir / f"{step_number:02d}_all_models_{suffix}.png"
-        fig.savefig(path, dpi=300, bbox_inches="tight")
+        save_fixed_layout_png(fig, path)
         print(f"Saved step {step_number}: {path}")
 
     for index, column in enumerate(trial_columns):
@@ -248,136 +220,141 @@ def save_all_model_comparison_sequence(
         axis.plot(
             source_frame["time"],
             source_frame[observed_column],
-            marker=TRIAL_MARKERS[index % len(TRIAL_MARKERS)],
-            linestyle="",
-            markersize=9.0,
-            color=TRIAL_COLORS[index % len(TRIAL_COLORS)],
-            markeredgecolor="black",
-            alpha=0.45,
+            **trial_line_style(index),
             label=column,
         )
-    save_step(1, "data", "Water Kefir: Observed Trials")
+    save_step(
+        1,
+        "data",
+        "Water Kefir: Observed Trials",
+    )
 
     axis.plot(
         neural_time,
         neural_frame["observed_mean"],
-        color=COLORS["observed_mean"],
-        linewidth=2.0,
-        linestyle=":",
-        label="Observed mean",
+        **model_line_style("observed_mean"),
+        label=MODEL_LABELS["observed_mean"],
     )
-    save_step(2, "observed_mean", "Water Kefir: Observed Mean")
+    save_step(
+        2,
+        "observed_mean",
+        "Water Kefir: Observed Mean",
+    )
 
     axis.plot(
         neural_time,
         neural_frame["classical_logistic_fitted_mean"],
-        color=COLORS["classical_logistic"],
-        linewidth=2.5,
-        linestyle=":",
-        label="Classical logistic ODE",
+        **model_line_style("classical_logistic"),
+        label=MODEL_LABELS["classical_logistic"],
     )
-    save_step(3, "classical_logistic_ode", "Water Kefir: Classical Logistic ODE")
+    save_step(
+        3,
+        "classical_logistic_ode",
+        "Water Kefir: Classical Logistic ODE",
+    )
 
     axis.plot(
         neural_time,
         neural_frame["ode_fitted_mean"],
-        color=COLORS["neural_ode"],
-        linewidth=2.5,
-        linestyle="--",
-        label="Neural ODE",
+        **model_line_style("neural_ode"),
+        label=MODEL_LABELS["neural_ode"],
     )
-    save_step(4, "neural_ode", "Water Kefir: Neural ODE")
+    save_step(
+        4,
+        "neural_ode",
+        "Water Kefir: Neural ODE",
+    )
 
     axis.plot(
         neural_time,
         neural_frame["sde_mean"],
-        color=COLORS["neural_sde"],
-        linewidth=2.5,
-        linestyle="-.",
-        label="Neural SDE mean",
+        **model_line_style("neural_sde"),
+        label=MODEL_LABELS["neural_sde"],
     )
-    save_step(5, "neural_sde_mean", "Water Kefir: Neural SDE Mean")
+    save_step(
+        5,
+        "neural_sde_mean",
+        "Water Kefir: Neural SDE Mean",
+    )
 
     axis.fill_between(
         neural_time,
         neural_frame["sde_lower"],
         neural_frame["sde_upper"],
-        color=COLORS["neural_sde_band"],
+        color=MODEL_COLORS["neural_sde_band"],
         alpha=0.15,
-        label=f"Neural SDE {interval_level:.0%} interval",
+        label=f"NSDE\n{interval_level:.0%} C.B.",
     )
     axis.plot(
         neural_time,
         neural_frame["sde_lower"],
-        color=COLORS["neural_sde_band"],
+        color=MODEL_COLORS["neural_sde_band"],
         linewidth=0.9,
         alpha=0.75,
     )
     axis.plot(
         neural_time,
         neural_frame["sde_upper"],
-        color=COLORS["neural_sde_band"],
+        color=MODEL_COLORS["neural_sde_band"],
         linewidth=0.9,
         alpha=0.75,
     )
-    save_step(6, "neural_sde_band", "Water Kefir: Classical and Neural Models")
+    save_step(
+        6,
+        "neural_sde_band",
+        "Water Kefir: Classical and Neural Models",
+    )
 
     axis.plot(
         pinn_time,
         pinn_curve_frame["deterministic_pinn"],
-        color=COLORS["deterministic_pinn"],
-        linewidth=2.4,
-        linestyle="-",
-        label="Deterministic logistic PINN",
+        **model_line_style("deterministic_pinn"),
+        label=MODEL_LABELS["deterministic_pinn"],
     )
     save_step(7, "deterministic_pinn", "Water Kefir: Add Deterministic PINN")
 
     axis.plot(
         pinn_time,
-        pinn_curve_frame["stochastic_pinn_drift"],
-        color=COLORS["stochastic_pinn_drift"],
-        linewidth=2.4,
-        linestyle="--",
-        label="Stochastic logistic PINN drift",
-    )
-    save_step(8, "stochastic_pinn_drift", "Water Kefir: Add Stochastic PINN Drift")
-
-    axis.plot(
-        pinn_time,
         pinn_curve_frame["sde_mean"],
-        color=COLORS["logistic_pinn_sde"],
-        linewidth=2.4,
-        linestyle="-.",
-        label="Logistic PINN SDE mean",
+        **model_line_style("logistic_pinn_sde"),
+        label=MODEL_LABELS["logistic_pinn_sde"],
     )
-    save_step(9, "logistic_pinn_sde_mean", "Water Kefir: Add Logistic PINN SDE Mean")
+    save_step(
+        8,
+        "logistic_pinn_sde_mean",
+        "Water Kefir: Add Logistic PINN SDE Mean",
+    )
 
     axis.fill_between(
         pinn_time,
         pinn_curve_frame["sde_lower"],
         pinn_curve_frame["sde_upper"],
-        color=COLORS["logistic_pinn_sde_band"],
+        color=MODEL_COLORS["logistic_pinn_sde_band"],
         alpha=0.14,
-        label=f"Logistic PINN SDE {interval_level:.0%} interval",
+        label=f"Logistic\nSDE PINN\n{interval_level:.0%} C.B.",
     )
     axis.plot(
         pinn_time,
         pinn_curve_frame["sde_lower"],
-        color=COLORS["logistic_pinn_sde_band"],
+        color=MODEL_COLORS["logistic_pinn_sde_band"],
         linewidth=0.9,
         alpha=0.8,
     )
     axis.plot(
         pinn_time,
         pinn_curve_frame["sde_upper"],
-        color=COLORS["logistic_pinn_sde_band"],
+        color=MODEL_COLORS["logistic_pinn_sde_band"],
         linewidth=0.9,
         alpha=0.8,
     )
-    save_step(10, "logistic_pinn_sde_band", "Water Kefir: All Fitted Models")
+    save_step(
+        9,
+        "logistic_pinn_sde_band",
+        "Water Kefir: All Fitted Models",
+    )
 
     final_path = output_dir / "water_kefir_all_models_comparison.png"
-    fig.savefig(final_path, dpi=300, bbox_inches="tight")
+    save_fixed_layout_png(fig, final_path)
     print(f"Saved final all-model comparison to {final_path}")
     plt.close(fig)
 

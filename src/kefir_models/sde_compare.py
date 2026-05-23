@@ -40,6 +40,21 @@ from kefir_models.ode_fit import (
     train_model,
     validate_frame,
 )
+from kefir_models.plot_style import (
+    COMPARISON_FIGURE_SIZE,
+    COMPARISON_LAYOUT,
+    MODEL_COLORS,
+    MODEL_LABELS,
+    OBJECTIVE_FIGURE_SIZE,
+    OBJECTIVE_LAYOUT,
+    REFERENCE_LINE_COLOR,
+    apply_comparison_axis_style,
+    deduplicated_legend,
+    model_line_style,
+    save_fixed_layout_png,
+    save_tight_png,
+    trial_line_style,
+)
 
 
 @dataclass(frozen=True)
@@ -793,63 +808,95 @@ def save_comparison_plot(
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
     import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
 
-    fig, axis = plt.subplots(figsize=(9.5, 5.8))
+    fig, axis = plt.subplots(figsize=COMPARISON_FIGURE_SIZE)
+    fig.subplots_adjust(**COMPARISON_LAYOUT)
     time = comparison_frame["time"]
 
-    for column in trial_columns:
-        axis.scatter(
+    y_series = [
+        pd.to_numeric(comparison_frame[f"{column}_observed"], errors="coerce").dropna()
+        for column in trial_columns
+        if f"{column}_observed" in comparison_frame.columns
+    ]
+    for column in [
+        "observed_mean",
+        "classical_logistic_fitted_mean",
+        "ode_fitted_mean",
+        "sde_mean",
+        "sde_lower",
+        "sde_upper",
+    ]:
+        if column in comparison_frame.columns:
+            y_series.append(
+                pd.to_numeric(comparison_frame[column], errors="coerce").dropna(),
+            )
+    y_min = min(float(series.min()) for series in y_series if not series.empty)
+    y_max = max(float(series.max()) for series in y_series if not series.empty)
+    y_range = y_max - y_min if y_max > y_min else 1.0
+    axis.set_ylim(y_min - 0.05 * y_range, y_max + 0.05 * y_range)
+
+    x_min, x_max = time.min(), time.max()
+    x_range = x_max - x_min if x_max > x_min else 1.0
+    axis.set_xlim(x_min - 0.05 * x_range, x_max + 0.05 * x_range)
+
+    for index, column in enumerate(trial_columns):
+        axis.plot(
             time,
             comparison_frame[f"{column}_observed"],
-            s=24,
-            alpha=0.55,
-            color="#2f2f2f",
+            **trial_line_style(index),
+            label=column.replace("_", " ").title(),
         )
 
     axis.plot(
         time,
         comparison_frame["observed_mean"],
-        color="#111111",
-        linewidth=1.5,
-        linestyle=":",
-        label="Observed mean",
+        **model_line_style("observed_mean"),
+        label=MODEL_LABELS["observed_mean"],
     )
     axis.plot(
         time,
         comparison_frame["ode_fitted_mean"],
-        color="#2364aa",
-        linewidth=2.5,
-        label="Neural ODE mean fit",
+        **model_line_style("neural_ode"),
+        label=MODEL_LABELS["neural_ode"],
     )
     axis.plot(
         time,
         comparison_frame["sde_mean"],
-        color="#d95f02",
-        linewidth=2.5,
-        label="Neural SDE predictive mean",
+        **model_line_style("neural_sde"),
+        label=MODEL_LABELS["neural_sde"],
     )
     axis.plot(
         time,
         comparison_frame["classical_logistic_fitted_mean"],
-        color="#2a9d8f",
-        linewidth=2.3,
-        label="Classical logistic mean fit",
+        **model_line_style("classical_logistic"),
+        label=MODEL_LABELS["classical_logistic"],
     )
     axis.fill_between(
         time,
         comparison_frame["sde_lower"],
         comparison_frame["sde_upper"],
-        color="#d95f02",
-        alpha=0.18,
-        label=f"Neural SDE {interval_level:.0%} interval",
+        color=MODEL_COLORS["neural_sde_band"],
+        alpha=0.15,
+        label=f"NSDE\n{interval_level:.0%} C.B.",
+    )
+    axis.plot(
+        time,
+        comparison_frame["sde_lower"],
+        color=MODEL_COLORS["neural_sde_band"],
+        linewidth=0.9,
+        alpha=0.75,
+    )
+    axis.plot(
+        time,
+        comparison_frame["sde_upper"],
+        color=MODEL_COLORS["neural_sde_band"],
+        linewidth=0.9,
+        alpha=0.75,
     )
 
     axis.set_title("Water Kefir: Neural ODE vs Neural SDE vs Logistic ODE")
-    axis.set_xlabel("Time")
-    axis.set_ylabel("Observed response")
-    axis.grid(alpha=0.25)
-    axis.legend()
-    fig.tight_layout()
-    fig.savefig(path, dpi=200)
+    apply_comparison_axis_style(axis)
+    deduplicated_legend(axis)
+    save_fixed_layout_png(fig, path)
     plt.close(fig)
 
 
@@ -927,9 +974,9 @@ def save_training_objective_scale_plot(
     import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
 
     colors = {
-        "Classical logistic ODE": "#2a9d8f",
-        "Neural ODE": "#2364aa",
-        "Neural SDE": "#d95f02",
+        "Classical logistic ODE": MODEL_COLORS["classical_logistic"],
+        "Neural ODE": MODEL_COLORS["neural_ode"],
+        "Neural SDE": MODEL_COLORS["neural_sde"],
     }
     panel_specs = [
         {
@@ -955,7 +1002,8 @@ def save_training_objective_scale_plot(
         },
     ]
 
-    fig, axes = plt.subplots(1, 3, figsize=(14.5, 4.8))
+    fig, axes = plt.subplots(1, 3, figsize=OBJECTIVE_FIGURE_SIZE)
+    fig.subplots_adjust(**OBJECTIVE_LAYOUT)
     for axis, spec in zip(axes, panel_specs):
         for model in spec["models"]:
             model_frame = history_frame[history_frame["model"] == model]
@@ -977,7 +1025,7 @@ def save_training_objective_scale_plot(
             axis.set_yscale("log")
         else:
             axis.set_yscale("symlog", linthresh=1e-2)
-            axis.axhline(0.0, color="#777777", linewidth=0.8, alpha=0.55)
+            axis.axhline(0.0, color=REFERENCE_LINE_COLOR, linewidth=0.8, alpha=0.55)
 
         axis.set_title(spec["title"])
         axis.set_xlabel("Epoch")
@@ -986,8 +1034,7 @@ def save_training_objective_scale_plot(
         axis.legend(fontsize=8)
 
     fig.suptitle("Training Objective Histories by Scale", y=1.02)
-    fig.tight_layout()
-    fig.savefig(path, dpi=200, bbox_inches="tight")
+    save_tight_png(fig, path)
     plt.close(fig)
 
 

@@ -4,6 +4,24 @@ from pathlib import Path
 
 import pandas as pd
 
+from kefir_models.plot_style import (
+    COMPARISON_FIGURE_SIZE,
+    COMPARISON_LAYOUT,
+    MODEL_COLORS,
+    MODEL_LABELS,
+    apply_comparison_axis_style,
+    deduplicated_legend,
+    model_line_style,
+    save_fixed_layout_png,
+    trial_line_style,
+)
+
+
+def _numeric_series(frame: pd.DataFrame, column: str) -> pd.Series:
+    """Return a numeric column with invalid values dropped."""
+
+    return pd.to_numeric(frame[column], errors="coerce").dropna()
+
 
 def save_comparison_plot(
     comparison_frame: pd.DataFrame,
@@ -16,21 +34,26 @@ def save_comparison_plot(
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
     import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
 
-    fig, axis = plt.subplots(figsize=(11.5, 5.8))
-    fig.subplots_adjust(right=0.65, bottom=0.15)
+    fig, axis = plt.subplots(figsize=COMPARISON_FIGURE_SIZE)
+    fig.subplots_adjust(**COMPARISON_LAYOUT)
     time = comparison_frame["time"]
 
     # Pre-calculate axis limits to fix the layout across the sequence
     all_y_cols = [
-        "observed_mean", "classical_logistic_fitted_mean",
-        "ode_fitted_mean", "sde_mean", "sde_lower", "sde_upper"
+        "observed_mean",
+        "classical_logistic_fitted_mean",
+        "ode_fitted_mean",
+        "sde_mean",
+        "sde_lower",
+        "sde_upper",
     ]
     for col in trial_columns:
-        all_y_cols.append(f"{col}")
+        all_y_cols.append(f"{col}_observed")
 
     valid_cols = [c for c in all_y_cols if c in comparison_frame.columns]
-    y_min = comparison_frame[valid_cols].min().min()
-    y_max = comparison_frame[valid_cols].max().max()
+    y_series = [_numeric_series(comparison_frame, column) for column in valid_cols]
+    y_min = min(float(series.min()) for series in y_series if not series.empty)
+    y_max = max(float(series.max()) for series in y_series if not series.empty)
     y_range = y_max - y_min if y_max > y_min else 1.0
     axis.set_ylim(y_min - y_range * 0.05, y_max + y_range * 0.05)
 
@@ -38,44 +61,21 @@ def save_comparison_plot(
     x_range = x_max - x_min if x_max > x_min else 1.0
     axis.set_xlim(x_min - x_range * 0.05, x_max + x_range * 0.05)
 
-    colors = [
-        "#1b9e77",
-        "#d95f02",
-        "#7570b3",
-        "#e7298a",
-        "#66a61e",
-        "#e6ab02",
-        "#a6761d",
-        "#666666",
-    ]
-    markers = ["o", "s", "^", "v", "D", "p", "*", "X"]
-
     axis.set_title("Water Kefir: Neural ODE vs Neural SDE vs Logistic ODE")
-    axis.set_xlabel("Time (hrs)")
-    axis.set_ylabel(r"Kefir wet biomass $(\mathrm{g/L})$")
-    axis.grid(alpha=0.25)
+    apply_comparison_axis_style(axis)
 
     def save_step(step_num: int, suffix: str):
-        handles, labels = axis.get_legend_handles_labels()
-        by_label = dict(zip(labels, handles))
-        axis.legend(by_label.values(), by_label.keys(), bbox_to_anchor=(1.05, 1), loc="upper left")
+        deduplicated_legend(axis)
         step_path = path.with_name(f"{step_num:02d}_{path.stem}_{suffix}{path.suffix}")
-        fig.savefig(step_path, dpi=300)
+        save_fixed_layout_png(fig, step_path)
         print(f"Saved step {step_num}: {step_path}")
 
     # 1. Plot the data
     for index, column in enumerate(trial_columns):
-        marker = markers[index % len(markers)]
-        color = colors[index % len(colors)]
         axis.plot(
             time,
             comparison_frame[f"{column}_observed"],
-            marker=marker,
-            linestyle="",
-            markersize=10,
-            color=color,
-            markeredgecolor="black",
-            alpha=0.25,
+            **trial_line_style(index),
             label=f"{column}",
         )
     save_step(1, "data")
@@ -84,10 +84,8 @@ def save_comparison_plot(
     axis.plot(
         time,
         comparison_frame["observed_mean"],
-        color="#111111",
-        linewidth=2.5,
-        linestyle=":",
-        label="Observed mean",
+        **model_line_style("observed_mean"),
+        label=MODEL_LABELS["observed_mean"],
     )
     save_step(2, "obs_mean")
 
@@ -95,10 +93,8 @@ def save_comparison_plot(
     axis.plot(
         time,
         comparison_frame["classical_logistic_fitted_mean"],
-        color="#2a9d8f",
-        linewidth=2.5,
-        linestyle='dotted',
-        label="Logistic-ODE fit",
+        **model_line_style("classical_logistic"),
+        label=MODEL_LABELS["classical_logistic"],
     )
     save_step(3, "classic_fit")
 
@@ -106,10 +102,8 @@ def save_comparison_plot(
     axis.plot(
         time,
         comparison_frame["ode_fitted_mean"],
-        color="#2364aa",
-        linewidth=2.5,
-        linestyle="--",
-        label="Neural-ODE fit",
+        **model_line_style("neural_ode"),
+        label=MODEL_LABELS["neural_ode"],
     )
     save_step(4, "node_fit")
 
@@ -117,10 +111,8 @@ def save_comparison_plot(
     axis.plot(
         time,
         comparison_frame["sde_mean"],
-        color="#d95f02",
-        linewidth=2.5,
-        linestyle="-.",
-        label="Neural-SDE mean",
+        **model_line_style("neural_sde"),
+        label=MODEL_LABELS["neural_sde"],
     )
     save_step(5, "sde_mean")
 
@@ -130,21 +122,26 @@ def save_comparison_plot(
             time,
             comparison_frame["sde_lower"],
             comparison_frame["sde_upper"],
-            color="#2dcdb0b3",
-            alpha=0.2,
-            label=f"Neural SDE {interval_level:.0%} interval",
+            color=MODEL_COLORS["neural_sde_band"],
+            alpha=0.15,
+            label=f"NSDE\n{interval_level:.0%} C.B.",
         )
         axis.plot(
-            time, comparison_frame["sde_lower"],
-            color="#2dcdb0b3", linewidth=1.0
+            time,
+            comparison_frame["sde_lower"],
+            color=MODEL_COLORS["neural_sde_band"],
+            linewidth=0.9,
+            alpha=0.75,
         )
         axis.plot(
-            time, comparison_frame["sde_upper"],
-            color="#2dcdb0b3", linewidth=1.0
+            time,
+            comparison_frame["sde_upper"],
+            color=MODEL_COLORS["neural_sde_band"],
+            linewidth=0.9,
+            alpha=0.75,
         )
 
     save_step(6, "sde_band")
-    plt.show()
     plt.close(fig)
 
 
@@ -162,7 +159,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-plot",
         type=Path,
-        default=Path("neural_sde_comparison_outputs/water_kefir_neural_dynamics_comparison_replot.png"),
+        default=Path(
+            "neural_sde_comparison_outputs/"
+            "water_kefir_neural_dynamics_comparison_replot.png",
+        ),
         help="Path where the generated plot will be saved.",
     )
     parser.add_argument(

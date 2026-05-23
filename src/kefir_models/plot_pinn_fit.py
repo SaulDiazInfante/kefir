@@ -28,22 +28,21 @@ from pathlib import Path
 
 import pandas as pd
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-_COLORS = [
-    "#1b9e77",
-    "#d95f02",
-    "#7570b3",
-    "#e7298a",
-    "#66a61e",
-    "#e6ab02",
-    "#a6761d",
-    "#666666",
-]
-_MARKERS = ["o", "s", "^", "v", "D", "p", "*", "X"]
+from kefir_models.plot_style import (
+    COMPARISON_FIGURE_SIZE,
+    COMPARISON_LAYOUT,
+    LOSS_COLORS,
+    LOSS_FIGURE_SIZE,
+    LOSS_LAYOUT,
+    MODEL_COLORS,
+    MODEL_LABELS,
+    apply_comparison_axis_style,
+    deduplicated_legend,
+    model_line_style,
+    save_fixed_layout_png,
+    save_tight_png,
+    trial_line_style,
+)
 
 
 def _infer_trial_columns(frame: pd.DataFrame) -> list[str]:
@@ -53,6 +52,12 @@ def _infer_trial_columns(frame: pd.DataFrame) -> list[str]:
         for col in frame.columns
         if col.endswith("_observed") and col != "observed_mean"
     ]
+
+
+def _numeric_series(frame: pd.DataFrame, column: str) -> pd.Series:
+    """Return a numeric column with invalid values dropped."""
+
+    return pd.to_numeric(frame[column], errors="coerce").dropna()
 
 
 # ---------------------------------------------------------------------------
@@ -71,8 +76,8 @@ def save_pinn_comparison_plot(
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
     import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
 
-    fig, axis = plt.subplots(figsize=(11.5, 5.8))
-    fig.subplots_adjust(right=0.65, bottom=0.15)
+    fig, axis = plt.subplots(figsize=COMPARISON_FIGURE_SIZE)
+    fig.subplots_adjust(**COMPARISON_LAYOUT)
 
     obs_time = comparison_frame["time"]
 
@@ -80,8 +85,14 @@ def save_pinn_comparison_plot(
     # the observation time grid.
     if dense_frame is not None and not dense_frame.empty:
         smooth_time = dense_frame["time"]
-        det_curve = dense_frame.get("deterministic_pinn", comparison_frame.get("deterministic_pinn"))
-        sto_drift = dense_frame.get("stochastic_pinn_drift", comparison_frame.get("stochastic_pinn_drift"))
+        det_curve = dense_frame.get(
+            "deterministic_pinn",
+            comparison_frame.get("deterministic_pinn"),
+        )
+        sto_drift = dense_frame.get(
+            "stochastic_pinn_drift",
+            comparison_frame.get("stochastic_pinn_drift"),
+        )
         sde_mean = dense_frame.get("sde_mean", comparison_frame.get("sde_mean"))
         sde_lower = dense_frame.get("sde_lower", comparison_frame.get("sde_lower"))
         sde_upper = dense_frame.get("sde_upper", comparison_frame.get("sde_upper"))
@@ -94,13 +105,35 @@ def save_pinn_comparison_plot(
         sde_upper = comparison_frame.get("sde_upper")
 
     # Pre-compute axis limits for a stable layout across all steps
-    all_y_cols = ["observed_mean", "deterministic_pinn", "stochastic_pinn_drift",
-                  "sde_mean", "sde_lower", "sde_upper"]
+    all_y_cols = [
+        "observed_mean",
+        "deterministic_pinn",
+        "stochastic_pinn_drift",
+        "sde_mean",
+        "sde_lower",
+        "sde_upper",
+    ]
     for col in trial_columns:
         all_y_cols.append(f"{col}_observed")
-    valid_cols = [c for c in all_y_cols if c in comparison_frame.columns]
-    y_min = comparison_frame[valid_cols].min().min()
-    y_max = comparison_frame[valid_cols].max().max()
+    y_series = [
+        _numeric_series(comparison_frame, column)
+        for column in all_y_cols
+        if column in comparison_frame.columns
+    ]
+    if dense_frame is not None and not dense_frame.empty:
+        y_series.extend(
+            _numeric_series(dense_frame, column)
+            for column in [
+                "deterministic_pinn",
+                "stochastic_pinn_drift",
+                "sde_mean",
+                "sde_lower",
+                "sde_upper",
+            ]
+            if column in dense_frame.columns
+        )
+    y_min = min(float(series.min()) for series in y_series if not series.empty)
+    y_max = max(float(series.max()) for series in y_series if not series.empty)
     y_range = y_max - y_min if y_max > y_min else 1.0
     axis.set_ylim(y_min - y_range * 0.05, y_max + y_range * 0.05)
 
@@ -108,21 +141,13 @@ def save_pinn_comparison_plot(
     x_range = x_max - x_min if x_max > x_min else 1.0
     axis.set_xlim(x_min - x_range * 0.05, x_max + x_range * 0.05)
 
-    axis.set_xlabel("Time (hrs)")
-    axis.set_ylabel(r"Kefir wet biomass $(\mathrm{g/L})$")
-    axis.grid(alpha=0.25)
+    apply_comparison_axis_style(axis)
 
     def _save_step(step_num: int, suffix: str, title: str) -> None:
         axis.set_title(title)
-        handles, labels = axis.get_legend_handles_labels()
-        by_label = dict(zip(labels, handles))
-        axis.legend(
-            by_label.values(), by_label.keys(),
-            bbox_to_anchor=(1.05, 1), loc="upper left",
-            fontsize=9,
-        )
+        deduplicated_legend(axis)
         step_path = output_dir / f"{step_num:02d}_pinn_fit_{suffix}.png"
-        fig.savefig(step_path, dpi=300, bbox_inches="tight")
+        save_fixed_layout_png(fig, step_path)
         print(f"Saved step {step_num}: {step_path}")
 
     # ------------------------------------------------------------------
@@ -135,12 +160,7 @@ def save_pinn_comparison_plot(
         axis.plot(
             obs_time,
             comparison_frame[col_obs],
-            marker=_MARKERS[idx % len(_MARKERS)],
-            linestyle="",
-            markersize=10,
-            color=_COLORS[idx % len(_COLORS)],
-            markeredgecolor="black",
-            alpha=0.65,
+            **trial_line_style(idx),
             label=col.replace("_", " ").title(),
         )
     _save_step(1, "data", "Water Kefir: Observed Trials")
@@ -152,10 +172,8 @@ def save_pinn_comparison_plot(
         axis.plot(
             smooth_time,
             det_curve,
-            color="#2364aa",
-            linewidth=2.5,
-            linestyle="-",
-            label="Deterministic PINN",
+            **model_line_style("deterministic_pinn"),
+            label=MODEL_LABELS["deterministic_pinn"],
         )
     _save_step(2, "det_pinn", "Water Kefir: Deterministic PINN Fit")
 
@@ -166,10 +184,8 @@ def save_pinn_comparison_plot(
         axis.plot(
             smooth_time,
             sto_drift,
-            color="#e76f51",
-            linewidth=2.5,
-            linestyle="--",
-            label="Stochastic PINN drift",
+            **model_line_style("stochastic_pinn_drift"),
+            label=MODEL_LABELS["stochastic_pinn_drift"],
         )
     _save_step(3, "sto_pinn_drift", "Water Kefir: Stochastic PINN Drift")
 
@@ -180,25 +196,34 @@ def save_pinn_comparison_plot(
         axis.plot(
             smooth_time,
             sde_mean,
-            color="#d95f02",
-            linewidth=2.5,
-            linestyle="-.",
-            label="SDE mean",
+            **model_line_style("logistic_pinn_sde"),
+            label=MODEL_LABELS["logistic_pinn_sde"],
         )
     if sde_lower is not None and sde_upper is not None:
         axis.fill_between(
             smooth_time,
             sde_lower,
             sde_upper,
-            color="#d95f02",
-            alpha=0.18,
-            label=f"SDE {interval_level:.0%} band",
+            color=MODEL_COLORS["logistic_pinn_sde_band"],
+            alpha=0.14,
+            label=f"Logistic\nSDE PINN\n{interval_level:.0%} C.B.",
         )
-        axis.plot(smooth_time, sde_lower, color="#d95f02", linewidth=0.8, alpha=0.5)
-        axis.plot(smooth_time, sde_upper, color="#d95f02", linewidth=0.8, alpha=0.5)
+        axis.plot(
+            smooth_time,
+            sde_lower,
+            color=MODEL_COLORS["logistic_pinn_sde_band"],
+            linewidth=0.9,
+            alpha=0.8,
+        )
+        axis.plot(
+            smooth_time,
+            sde_upper,
+            color=MODEL_COLORS["logistic_pinn_sde_band"],
+            linewidth=0.9,
+            alpha=0.8,
+        )
     _save_step(4, "sde_band", "Water Kefir: Logistic PINN Fits")
 
-    plt.show()
     plt.close(fig)
 
 
@@ -216,7 +241,8 @@ def save_loss_plot(
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
     import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
 
-    fig, axes = plt.subplots(1, 2, figsize=(13.0, 5.0), constrained_layout=True)
+    fig, axes = plt.subplots(1, 2, figsize=LOSS_FIGURE_SIZE)
+    fig.subplots_adjust(**LOSS_LAYOUT)
 
     titles = ["Deterministic PINN", "Stochastic PINN"]
     frames = [det_loss, sto_loss]
@@ -251,16 +277,20 @@ def save_loss_plot(
             if not valid.any():
                 continue
             all_vals.append(y[valid])
-            ax.plot(x[valid], y[valid], linewidth=1.6,
-                    label=col.replace("_", " ").title())
+            ax.plot(
+                x[valid],
+                y[valid],
+                color=LOSS_COLORS.get(col),
+                linewidth=1.6,
+                label=col.replace("_", " ").title(),
+            )
 
         if all_vals:
             ax.set_yscale("log")
             ax.legend(fontsize=8)
 
     fig.suptitle("Logistic PINN: Training Loss Histories", fontsize=13)
-    fig.savefig(output_path, dpi=300, bbox_inches="tight")
-    plt.show()
+    save_tight_png(fig, output_path)
     plt.close(fig)
     print(f"Loss plot saved to {output_path}")
 
@@ -272,7 +302,10 @@ def save_loss_plot(
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Plot logistic PINN fitting results (step-by-step comparison + loss histories).",
+        description=(
+            "Plot logistic PINN fitting results "
+            "(step-by-step comparison + loss histories)."
+        ),
     )
     parser.add_argument(
         "--comparison-csv",

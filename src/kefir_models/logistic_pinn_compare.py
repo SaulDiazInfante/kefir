@@ -39,6 +39,21 @@ from kefir_models.ode_fit import (
     select_device,
     validate_frame,
 )
+from kefir_models.plot_style import (
+    COMPARISON_FIGURE_SIZE,
+    COMPARISON_LAYOUT,
+    LOSS_COLORS,
+    LOSS_FIGURE_SIZE,
+    LOSS_LAYOUT,
+    MODEL_COLORS,
+    MODEL_LABELS,
+    apply_comparison_axis_style,
+    deduplicated_legend,
+    model_line_style,
+    save_fixed_layout_png,
+    save_tight_png,
+    trial_line_style,
+)
 
 
 @dataclass(frozen=True)
@@ -997,69 +1012,91 @@ def save_comparison_plot(
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
     import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
 
-    fig, axis = plt.subplots(figsize=(10.5, 6.0))
-    colors = [
-        "#1b9e77",
-        "#d95f02",
-        "#7570b3",
-        "#e7298a",
-        "#66a61e",
-        "#e6ab02",
+    fig, axis = plt.subplots(figsize=COMPARISON_FIGURE_SIZE)
+    fig.subplots_adjust(**COMPARISON_LAYOUT)
+
+    y_series = [
+        pd.to_numeric(observed_frame[f"{column}_observed"], errors="coerce").dropna()
+        for column in trial_columns
+        if f"{column}_observed" in observed_frame.columns
     ]
-    markers = ["o", "s", "^", "D", "v", "P"]
+    for column in ["observed_mean"]:
+        if column in observed_frame.columns:
+            y_series.append(
+                pd.to_numeric(observed_frame[column], errors="coerce").dropna(),
+            )
+    for column in ["deterministic_pinn", "sde_mean", "sde_lower", "sde_upper"]:
+        if column in dense_frame.columns:
+            y_series.append(
+                pd.to_numeric(dense_frame[column], errors="coerce").dropna(),
+            )
+    y_min = min(float(series.min()) for series in y_series if not series.empty)
+    y_max = max(float(series.max()) for series in y_series if not series.empty)
+    y_range = y_max - y_min if y_max > y_min else 1.0
+    axis.set_ylim(y_min - 0.05 * y_range, y_max + 0.05 * y_range)
+
+    x_values = [
+        pd.to_numeric(observed_frame["time"], errors="coerce").dropna(),
+        pd.to_numeric(dense_frame["time"], errors="coerce").dropna(),
+    ]
+    x_min = min(float(series.min()) for series in x_values if not series.empty)
+    x_max = max(float(series.max()) for series in x_values if not series.empty)
+    x_range = x_max - x_min if x_max > x_min else 1.0
+    axis.set_xlim(x_min - 0.05 * x_range, x_max + 0.05 * x_range)
 
     for index, column in enumerate(trial_columns):
-        axis.scatter(
+        axis.plot(
             observed_frame["time"],
             observed_frame[f"{column}_observed"],
-            s=42,
-            marker=markers[index % len(markers)],
-            color=colors[index % len(colors)],
-            edgecolor="black",
-            linewidth=0.4,
-            alpha=0.65,
-            label=f"{column} observed",
+            **trial_line_style(index),
+            label=column.replace("_", " ").title(),
         )
 
     axis.plot(
         observed_frame["time"],
         observed_frame["observed_mean"],
-        color="#111111",
-        linewidth=1.8,
-        linestyle=":",
-        label="Observed mean",
+        **model_line_style("observed_mean"),
+        label=MODEL_LABELS["observed_mean"],
     )
     axis.plot(
         dense_frame["time"],
         dense_frame["deterministic_pinn"],
-        color="#2364aa",
-        linewidth=2.7,
-        label="Deterministic logistic PINN",
+        **model_line_style("deterministic_pinn"),
+        label=MODEL_LABELS["deterministic_pinn"],
     )
     axis.plot(
         dense_frame["time"],
         dense_frame["sde_mean"],
-        color="#d95f02",
-        linewidth=2.7,
-        linestyle="-.",
-        label="Stochastic logistic SDE mean",
+        **model_line_style("logistic_pinn_sde"),
+        label=MODEL_LABELS["logistic_pinn_sde"],
     )
     axis.fill_between(
         dense_frame["time"],
         dense_frame["sde_lower"],
         dense_frame["sde_upper"],
-        color="#d95f02",
-        alpha=0.18,
-        label=f"Stochastic SDE {interval_level:.0%} interval",
+        color=MODEL_COLORS["logistic_pinn_sde_band"],
+        alpha=0.14,
+        label=f"Logistic\nSDE PINN\n{interval_level:.0%} C.B.",
+    )
+    axis.plot(
+        dense_frame["time"],
+        dense_frame["sde_lower"],
+        color=MODEL_COLORS["logistic_pinn_sde_band"],
+        linewidth=0.9,
+        alpha=0.8,
+    )
+    axis.plot(
+        dense_frame["time"],
+        dense_frame["sde_upper"],
+        color=MODEL_COLORS["logistic_pinn_sde_band"],
+        linewidth=0.9,
+        alpha=0.8,
     )
 
     axis.set_title("Water Kefir Logistic PINN: Deterministic vs Stochastic")
-    axis.set_xlabel("Time (hrs)")
-    axis.set_ylabel(r"Kefir wet biomass $(\mathrm{g/L})$")
-    axis.grid(alpha=0.25)
-    axis.legend(fontsize=8, ncol=2)
-    fig.tight_layout()
-    fig.savefig(path, dpi=300)
+    apply_comparison_axis_style(axis)
+    deduplicated_legend(axis)
+    save_fixed_layout_png(fig, path)
     plt.close(fig)
 
 
@@ -1073,16 +1110,41 @@ def save_loss_plot(
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
     import matplotlib.pyplot as plt  # pylint: disable=import-outside-toplevel
 
-    fig, axes = plt.subplots(1, 2, figsize=(12.5, 4.8), constrained_layout=True)
+    fig, axes = plt.subplots(1, 2, figsize=LOSS_FIGURE_SIZE)
+    fig.subplots_adjust(**LOSS_LAYOUT)
     for axis, history, title in [
         (axes[0], deterministic_history, "Deterministic PINN"),
         (axes[1], stochastic_history, "Stochastic PINN/SDE"),
     ]:
-        axis.plot(history["epoch"], history["total_loss"], label="total")
-        axis.plot(history["epoch"], history["data_mse"], label="data")
-        axis.plot(history["epoch"], history["physics_mse"], label="physics")
+        axis.plot(
+            history["epoch"],
+            history["total_loss"],
+            color=LOSS_COLORS["total_loss"],
+            linewidth=1.6,
+            label="Total",
+        )
+        axis.plot(
+            history["epoch"],
+            history["data_mse"],
+            color=LOSS_COLORS["data_mse"],
+            linewidth=1.6,
+            label="Data",
+        )
+        axis.plot(
+            history["epoch"],
+            history["physics_mse"],
+            color=LOSS_COLORS["physics_mse"],
+            linewidth=1.6,
+            label="Physics",
+        )
         if "transition_nll" in history.columns and history["transition_nll"].notna().any():
-            axis.plot(history["epoch"], history["transition_nll"], label="transition nll")
+            axis.plot(
+                history["epoch"],
+                history["transition_nll"],
+                color=LOSS_COLORS["transition_nll"],
+                linewidth=1.6,
+                label="Transition NLL",
+            )
         plotted_columns = ["total_loss", "data_mse", "physics_mse"]
         if "transition_nll" in history.columns and history["transition_nll"].notna().any():
             plotted_columns.append("transition_nll")
@@ -1095,7 +1157,7 @@ def save_loss_plot(
         axis.grid(alpha=0.25)
         axis.legend(fontsize=8)
 
-    fig.savefig(path, dpi=300)
+    save_tight_png(fig, path)
     plt.close(fig)
 
 
