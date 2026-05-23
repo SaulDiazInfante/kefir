@@ -1,0 +1,6 @@
+model,parameter,value
+deterministic_logistic_pinn,growth_rate,0.03506220504641533
+deterministic_logistic_pinn,carrying_capacity,52.33500289916992
+stochastic_logistic_sde,growth_rate,0.0368056446313858
+stochastic_logistic_sde,carrying_capacity,52.2808952331543
+stochastic_logistic_sde,diffusion,0.017245320603251457

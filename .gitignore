@@ -63,3 +63,7 @@ configs/
 *.pt
 *.csv
 *.xlsx
+
+# LaTeX build state
+*.fdb_latexmk
+*.fls
